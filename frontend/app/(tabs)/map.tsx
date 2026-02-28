@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import MapView, { Marker, PROVIDER_DEFAULT, Region } from "react-native-maps";
+import MapView, {
+  Circle,
+  Marker,
+  PROVIDER_DEFAULT,
+  Region,
+} from "react-native-maps";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/theme";
 import { Text } from "@concerns/atomics";
+import { useLazySubmitLocationQuery } from "@/store/api/mapApi";
+import { CircleSizeLengths, CircleSize, getCircleCenter } from "@/utility/map";
 
 type LocationState =
   | { status: "idle" }
@@ -22,26 +29,64 @@ export default function MapScreen() {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
+
   const [location, setLocation] = useState<LocationState>({ status: "idle" });
+  const [heading, setHeading] = useState<number>(0);
+  const [activeCircleSize, setActiveCircleSize] = useState<CircleSize>("large");
+
+  const [triggerSubmit, { data, isLoading: isSubmitting }] =
+    useLazySubmitLocationQuery();
+
+  const boundingCircle = useMemo(() => {
+    if (location.status !== "ready") return null;
+    const radius = CircleSizeLengths[activeCircleSize];
+    const center = getCircleCenter(location.coords, heading, radius);
+    return {
+      latitude: center.latitude,
+      longitude: center.longitude,
+      radius,
+    };
+  }, [location, heading, activeCircleSize]);
+
+  const initialRegion: Region | undefined =
+    location.status === "ready"
+      ? {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }
+      : undefined;
 
   useEffect(() => {
     requestLocation();
   }, []);
 
+  useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+
+    const startHeading = async () => {
+      sub = await Location.watchHeadingAsync((h) => {
+        setHeading(h.trueHeading ?? h.magHeading ?? 0);
+      });
+    };
+
+    startHeading();
+    return () => {
+      sub?.remove();
+    };
+  }, []);
+
   const requestLocation = async () => {
     setLocation({ status: "loading" });
-
     const { status } = await Location.requestForegroundPermissionsAsync();
-
     if (status !== "granted") {
       setLocation({ status: "denied" });
       return;
     }
-
     const current = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
-
     setLocation({
       status: "ready",
       coords: {
@@ -64,15 +109,10 @@ export default function MapScreen() {
     );
   };
 
-  const initialRegion: Region | undefined =
-    location.status === "ready"
-      ? {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }
-      : undefined;
+  const handleScan = useCallback(() => {
+    if (!boundingCircle) return;
+    triggerSubmit(boundingCircle);
+  }, [boundingCircle, triggerSubmit]);
 
   const styles = useMemo(
     () =>
@@ -83,39 +123,6 @@ export default function MapScreen() {
         },
         map: {
           flex: 1,
-        },
-        header: {
-          position: "absolute",
-          top: insets.top + theme.spacing(1.5),
-          left: theme.spacing(2),
-          right: theme.spacing(2),
-          zIndex: 10,
-        },
-        headerCard: {
-          borderRadius: theme.borderRadius.round,
-          backgroundColor: `${theme.colors.surface}F0`,
-          borderWidth: 1,
-          borderColor: theme.colors.outlineVariant,
-        },
-        headerContent: {
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: theme.spacing(2.5),
-          paddingVertical: theme.spacing(1.5),
-        },
-        headerLeft: {
-          gap: 2,
-        },
-        statusDot: {
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-        },
-        statusRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.spacing(0.75),
         },
         recenterBtn: {
           position: "absolute",
@@ -170,6 +177,48 @@ export default function MapScreen() {
           shadowOpacity: 0.8,
           shadowRadius: 8,
           elevation: 6,
+        },
+        headingBadge: {
+          position: "absolute",
+          bottom: insets.bottom + theme.spacing(10),
+          left: theme.spacing(2),
+          backgroundColor: `${theme.colors.surface}F0`,
+          borderRadius: theme.borderRadius.round,
+          borderWidth: 1,
+          borderColor: theme.colors.outlineVariant,
+          paddingHorizontal: theme.spacing(2),
+          paddingVertical: theme.spacing(1),
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing(0.75),
+        },
+        scanBtn: {
+          position: "absolute",
+          bottom: insets.bottom + theme.spacing(3),
+          left: theme.spacing(2),
+          right: theme.spacing(2) + 50 + theme.spacing(2),
+          height: 50,
+          borderRadius: theme.borderRadius.fiftyPercent,
+          backgroundColor: theme.colors.primary,
+          alignItems: "center",
+          justifyContent: "center",
+          flexDirection: "row",
+          gap: theme.spacing(1),
+          shadowColor: theme.colors.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          elevation: 6,
+        },
+        scanBtnDisabled: {
+          backgroundColor: theme.colors.surfaceVariant,
+          shadowOpacity: 0,
+          elevation: 0,
+        },
+        scanBtnText: {
+          color: theme.colors.onPrimary,
+          fontWeight: "700",
+          fontSize: 15,
         },
       }),
     [theme, insets],
@@ -244,6 +293,7 @@ export default function MapScreen() {
           showsUserLocation={false}
           showsMyLocationButton={false}
         >
+          {/* User location pin */}
           {location.status === "ready" && (
             <Marker
               coordinate={location.coords}
@@ -255,12 +305,75 @@ export default function MapScreen() {
               </View>
             </Marker>
           )}
+
+          {/* Directional bounding circle */}
+          {location.status === "ready" && boundingCircle && (
+            <Circle
+              center={{
+                latitude: boundingCircle.latitude,
+                longitude: boundingCircle.longitude,
+              }}
+              radius={boundingCircle.radius}
+              fillColor={`${theme.colors.primary}20`}
+              strokeColor={theme.colors.primary}
+              strokeWidth={2}
+            />
+          )}
+
+          {/* POI markers from API */}
+          {data?.pois.map((poi, i) => (
+            <Marker
+              key={i}
+              coordinate={{ latitude: poi.lat, longitude: poi.lng }}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+            >
+              <View
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: 7,
+                  backgroundColor: theme.colors.secondary,
+                  borderWidth: 2,
+                  borderColor: theme.colors.surface,
+                }}
+              />
+            </Marker>
+          ))}
         </MapView>
       )}
 
       {location.status === "ready" && (
+        <View style={styles.headingBadge}>
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            {Math.round(heading)}° · {activeCircleSize} ·{" "}
+            {CircleSizeLengths[activeCircleSize]}m
+          </Text>
+        </View>
+      )}
+
+      {/* Scan button */}
+      {location.status === "ready" && (
+        <TouchableOpacity
+          style={[styles.scanBtn, isSubmitting && styles.scanBtnDisabled]}
+          onPress={handleScan}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color={theme.colors.onPrimary} />
+          ) : (
+            <Text style={styles.scanBtnText}>Scan Area</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {/* Recenter button */}
+      {location.status === "ready" && (
         <TouchableOpacity style={styles.recenterBtn} onPress={handleRecenter}>
-          <Text style={styles.recenterIcon}>X</Text>
+          <Text style={styles.recenterIcon}>⌖</Text>
         </TouchableOpacity>
       )}
     </View>

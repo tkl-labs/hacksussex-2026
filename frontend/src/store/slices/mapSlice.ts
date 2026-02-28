@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export type UserLocation = {
   latitude: number;
   longitude: number;
+  radius: number;
 };
 
 type POI = {

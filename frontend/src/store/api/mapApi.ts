@@ -4,7 +4,7 @@ import type { UserLocation, MapResponse } from "../slices/mapSlice";
 export const mapApi = createApi({
   reducerPath: "mapApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "http://localhost:8000/api",
+    baseUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api",
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as any).auth?.token;
       if (token) {
@@ -15,14 +15,32 @@ export const mapApi = createApi({
     },
   }),
   endpoints: (build) => ({
-    submitLocation: build.mutation<MapResponse, UserLocation>({
-      query: (body) => ({
+    submitLocation: build.query<MapResponse, UserLocation>({
+      query: ({ latitude, longitude, radius }) => ({
         url: "/pois",
-        method: "POST",
-        body,
+        method: "GET",
+        params: {
+          lat: latitude,
+          lng: longitude,
+          rad: radius,
+        },
       }),
+      transformResponse: (response: MapResponse, meta, arg) => response,
+      transformErrorResponse: (
+        response: { status: string | number },
+        meta,
+        arg,
+      ) => response.status,
+      async onQueryStarted(arg, { queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          console.log("POIs received:", data);
+        } catch (err) {
+          console.warn("Failed to fetch POIs:", err);
+        }
+      },
     }),
   }),
 });
 
-export const { useSubmitLocationMutation } = mapApi;
+export const { useLazySubmitLocationQuery } = mapApi;
