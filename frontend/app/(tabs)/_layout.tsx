@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/theme";
+import {HomeIcon, PersonWalkingIcon, SettingsIcon} from "@concerns/atomics/Icons";
 
 export default function TabsLayout() {
   const theme = useAppTheme();
@@ -30,16 +31,30 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="walk"
+        options={{
+          title: "Walk",
+          tabBarIcon: ({ focused }) => (
+            <PersonWalkingIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-
+        title: "Home",
+         tabBarIcon: ({ focused }) => (
+            <HomeIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+        ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: "Settings",
+          tabBarIcon: ({ focused }) => (
+            <SettingsIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+          ),
         }}
       />
     </Tabs>
