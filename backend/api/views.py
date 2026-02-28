@@ -11,11 +11,28 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 
+def get_primary_types() -> list[str]:
+    content = None
+    f = open("./primary_types.txt", "r")
+    content = f.read()
+    f.close()
+    types = content.splitlines()
+    return types
+
+PRIMARY_TYPES: list[str] = get_primary_types()
+
+
+def flatten(map):
+    for entry in map['places']:
+        text = entry["displayName"]["text"]
+        entry["displayName"] = text
+
+    return map
+
 class LocationSerializer(serializers.Serializer):
     lat = serializers.FloatField(min_value=-90, max_value=90)
     lng = serializers.FloatField(min_value=-180, max_value=180)
-    rad = serializers.FloatField(min_value=0, max_value=100)
-
+    rad = serializers.FloatField(min_value=0, max_value=1000)
 
 class GetPoisFromLocation(APIView):
     def get(self, request):
@@ -28,16 +45,27 @@ class GetPoisFromLocation(APIView):
 
         url = "https://places.googleapis.com/v1/places:searchNearby"
 
-        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "*"}
+        headers = { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "places.displayName.text,places.formattedAddress" }
 
-        data = {"locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": rad}},
-                "includedPrimaryTypes": ["banks"], "maxResultCount": 5}
+        data = {
+            "locationRestriction": 
+            { "circle": { 
+                "center": {
+                    "latitude": lat, 
+                    "longitude": lng
+                }, 
+                "radius": rad
+            }},
+            "includedPrimaryTypes": PRIMARY_TYPES,
+            "maxResultCount": 5
+        }
 
         response = requests.post(url, headers=headers, json=data)
 
         if response.status_code == 200:
             print(response.json())
-            return Response({"pois": (lat, lng, rad), "google_response": response.json()})
+            return Response(flatten(response.json()))
+            # return Response(response.json())
         else:
             print(f"Error {response.status_code}: {response.text}")
-            return Response({"pois": (lat, lng, rad)})
+            return Response({response.status_code: response.text})
