@@ -27,6 +27,12 @@ def flatten(map):
         text = entry["displayName"]["text"]
         entry["displayName"] = text
 
+        latitude = entry["location"]["latitude"]
+        entry["latitude"] = latitude
+
+        longitude = entry["location"]["longitude"]
+        entry["longitude"] = longitude
+
     return map
 
 class LocationSerializer(serializers.Serializer):
@@ -45,7 +51,7 @@ class GetPoisFromLocation(APIView):
 
         url = "https://places.googleapis.com/v1/places:searchNearby"
 
-        headers = { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "places.displayName.text,places.formattedAddress" }
+        headers = { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "places.displayName.text,places.formattedAddress,places.location.latitude,places.location.longitude" }
 
         data = {
             "locationRestriction": 

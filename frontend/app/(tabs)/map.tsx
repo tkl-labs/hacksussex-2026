@@ -37,6 +37,8 @@ export default function MapScreen() {
   const [triggerSubmit, { data, isLoading: isSubmitting }] =
     useLazySubmitLocationQuery();
 
+  console.log("data", data)
+
   const boundingCircle = useMemo(() => {
     if (location.status !== "ready") return null;
     const radius = CircleSizeLengths[activeCircleSize];
@@ -321,10 +323,10 @@ export default function MapScreen() {
           )}
 
           {/* POI markers from API */}
-          {data?.pois.map((poi, i) => (
+          {data?.places.map((place, i) => (
             <Marker
               key={i}
-              coordinate={{ latitude: poi.lat, longitude: poi.lng }}
+              coordinate={{ latitude: place.latitude, longitude: place.longitude }}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >

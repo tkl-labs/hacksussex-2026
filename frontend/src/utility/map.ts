@@ -4,7 +4,7 @@ export type CircleSize = "small" | "medium" | "large";
 export const CircleSizeLengths: Record<CircleSize, number> = {
   small: 50,
   medium: 75,
-  large: 100,
+  large: 500,
 };
 
 // Average number of meters in one degree of latitude
