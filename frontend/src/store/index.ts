@@ -1,6 +1,7 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { persistStore, persistReducer } from "redux-persist";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import mapReducer from "./slices/mapSlice";
 
 const persistConfig = {
   key: "root",
@@ -9,7 +10,7 @@ const persistConfig = {
 };
 
 const rootReducer = combineReducers({
-  // slices go here when we build them
+  map: mapReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

@@ -2,7 +2,12 @@ import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/theme";
-import {HomeIcon, PersonWalkingIcon, SettingsIcon} from "@concerns/atomics/Icons";
+import {
+  HomeIcon,
+  PersonWalkingIcon,
+  SettingsIcon,
+} from "@concerns/atomics/Icons";
+import { MapIcon } from "@concerns/atomics/Icons/MapIcon";
 
 export default function TabsLayout() {
   const theme = useAppTheme();
@@ -35,17 +40,38 @@ export default function TabsLayout() {
         options={{
           title: "Walk",
           tabBarIcon: ({ focused }) => (
-            <PersonWalkingIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+            <PersonWalkingIcon
+              color={
+                focused ? theme.colors.primary : theme.colors.onSurfaceVariant
+              }
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: "Map",
+          tabBarIcon: ({ focused }) => (
+            <MapIcon
+              color={
+                focused ? theme.colors.primary : theme.colors.onSurfaceVariant
+              }
+            />
           ),
         }}
       />
       <Tabs.Screen
         name="index"
         options={{
-        title: "Home",
-         tabBarIcon: ({ focused }) => (
-            <HomeIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
-        ),
+          title: "Home",
+          tabBarIcon: ({ focused }) => (
+            <HomeIcon
+              color={
+                focused ? theme.colors.primary : theme.colors.onSurfaceVariant
+              }
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -53,7 +79,11 @@ export default function TabsLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ focused }) => (
-            <SettingsIcon color={focused ? theme.colors.primary : theme.colors.onSurfaceVariant} />
+            <SettingsIcon
+              color={
+                focused ? theme.colors.primary : theme.colors.onSurfaceVariant
+              }
+            />
           ),
         }}
       />
