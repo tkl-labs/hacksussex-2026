@@ -26,12 +26,12 @@ class GetPoisFromLocation(APIView):
         lng = serializer.validated_data['lng']
         rad = serializer.validated_data['rad']
 
-        url = "https://places.googleapis.com/v1/places:searchText"
+        url = "https://places.googleapis.com/v1/places:searchNearby"
 
-        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY,
-            "X-Goog-FieldMask": "*"}
+        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "*"}
 
-        data = {"textQuery": "restaurants in Brighton, England", "maxResultCount": 5}
+        data = {"locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": rad}},
+                "includedPrimaryTypes": ["banks"], "maxResultCount": 5}
 
         response = requests.post(url, headers=headers, json=data)
 
