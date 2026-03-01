@@ -26,12 +26,12 @@ class GenerateMp3FromText(APIView):
 
         headers = {"xi-api-key": ELEVENLABS_API_KEY, "output_format": "mp3_44100_128"}
 
-        data = {"text": text, "model_id": "eleven_flash_v2_5"}
+        payload = {"text": text, "model_id": "eleven_flash_v2_5"}
 
         response = session.post(
             url,
             headers=headers,
-            json=data,
+            json=payload,
             stream=True,
             timeout=(5, 60)
         )

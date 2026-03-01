@@ -1,7 +1,7 @@
 # Create your views here.
+import math
 import os
 
-import math
 import requests
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -12,14 +12,25 @@ session = requests.session()
 
 
 def get_primary_types() -> list[str]:
-    f = open("./primary_types.txt", "r")
-    content = f.read()
-    f.close()
-    types = content.splitlines()
-    return types
+    with open("./primary_types.txt") as f:
+        return f.read().splitlines()
 
 
-PRIMARY_TYPES: list[str] = get_primary_types()
+PRIMARY_TYPES = get_primary_types()
+
+
+class LocationSerializer(serializers.Serializer):
+    lat = serializers.FloatField(min_value=-90, max_value=90)
+    lng = serializers.FloatField(min_value=-180, max_value=180)
+    rad = serializers.FloatField(min_value=0, max_value=1000)
+
+
+class Card:
+    def __init__(self, places_response):
+        self.name = places_response["displayName"]
+        self.distance = places_response["distance"]
+        self.rating = places_response["rating"]
+        self.review_count = places_response["userRatingCount"]
 
 
 def flatten(places_response):
@@ -30,18 +41,10 @@ def flatten(places_response):
     return places_response
 
 
-class LocationSerializer(serializers.Serializer):
-    lat = serializers.FloatField(min_value=-90, max_value=90)
-    lng = serializers.FloatField(min_value=-180, max_value=180)
-    rad = serializers.FloatField(min_value=0, max_value=1000)
-
-
-
-def rank_poi(map):
-    rating = map["rating"]
-    userRatingCount = map["userRatingCount"]
-    distance = map["distance"]
-
+def rank_poi(places_response):
+    rating = places_response.get("rating", 0)
+    user_rating_count = max(places_response.get("userRatingCount", 0), 1)
+    distance = places_response["distance"]
 
     """
     Rank a point of interest using:
@@ -50,61 +53,45 @@ def rank_poi(map):
     - distance in km
     """
 
-    # --- 1️⃣ Stabilize rating (Bayesian smoothing)
+    # stabilize rating (Bayesian smoothing)
     # prevents 5.0 with 2 reviews from dominating
-    m = 50              # review smoothing threshold
-    C = 4.0             # assumed global average rating
+    m = 50  # review smoothing threshold
+    C = 4.0  # assumed global average rating
+    weighted_rating = ((user_rating_count / (user_rating_count + m)) * rating + (m / (user_rating_count + m)) * C)
 
-    weighted_rating = (
-        (userRatingCount / (userRatingCount + m)) * rating
-        + (m / (userRatingCount + m)) * C
-    )
+    # popularity boost (log scale)
+    popularity = math.log1p(user_rating_count)
 
-    # --- 2️⃣ Popularity boost (log scale)
-    popularity = math.log1p(userRatingCount)
-
-    # --- 3️⃣ Distance decay
-    k = 1.2             # higher = distance matters more
+    # distance decay
+    k = 1.2  # higher = distance matters more
     distance_weight = math.exp(-k * distance)
 
-    # --- 4️⃣ Final score
+    # final score
     return weighted_rating * popularity * distance_weight
 
 
-
 def get_distance(cord1, cord2) -> float:
-    R = 6371.0
+    r = 6371.0
 
-    lat1 = cord1["latitude"]
-    lon1 = cord1["longitude"]
+    lat1 = math.radians(cord1["latitude"])
+    lon1 = math.radians(cord1["longitude"])
 
-    lat2 = cord2["latitude"]
-    lon2 = cord2["longitude"]
-
+    lat2 = math.radians(cord2["latitude"])
+    lon2 = math.radians(cord2["longitude"])
 
     dlat = lat2 - lat1
     dlon = lon2 - lon1
 
-    a = math.sin(dlat / 2)**2 + \
-        math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-    distance = R * c
+    return r * c
 
-    return distance
-
-
-class Card:
-    def __init__(self, map):
-        self.name = map["displayName"]
-        self.distance = map["distance"]
-        self.rating = map["rating"]
-        self.review_count = map["userRatingCount"]
 
 class GetPoisFromLocation(APIView):
     def post(self, request):
-        serializer = LocationSerializer(data=request.query_params)
+        serializer = LocationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         lat = serializer.validated_data['lat']
@@ -113,41 +100,17 @@ class GetPoisFromLocation(APIView):
 
         url = "https://places.googleapis.com/v1/places:searchNearby"
 
-        headers = { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask": "places.displayName.text,places.formattedAddress" }
+        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY,
+                   "X-Goog-FieldMask": "places.displayName.text,places.location.latitude,places.location.longitude,places.userRatingCount,places.rating"}
 
-        data = {
-            "locationRestriction":
-            { "circle": {
-                "center": {
-                    "latitude": lat,
-                    "longitude": lng
-                },
-                "radius": rad
-            }},
-            "includedPrimaryTypes": PRIMARY_TYPES,
-            "maxResultCount": 5
-        }
-        headers = { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY, "X-Goog-FieldMask":
-                   "places.displayName.text,places.location.latitude,places.location.longitude,places.userRatingCount,places.rating"}
-        data = {
-            "locationRestriction":
-            { "circle": {
-                "center": {
-                    "latitude": lat,
-                    "longitude": lng
-                },
-                "radius": rad
-            }},
-            "includedPrimaryTypes": PRIMARY_TYPES,
-            "maxResultCount": 5
-        }
+        payload = {"locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": rad}},
+                   "includedPrimaryTypes": PRIMARY_TYPES, "maxResultCount": 5}
 
-        response = requests.post(url, headers=headers, json=data)
+        response = session.post(url, headers=headers, json=payload, timeout=(5, 60))
 
         if response.status_code != 200:
             print(f"Error {response.status_code}: {response.text}")
             return Response({response.status_code: response.text})
-
 
         results = flatten(response.json())
 
@@ -155,7 +118,6 @@ class GetPoisFromLocation(APIView):
             return Response([])
 
         results = results["places"]
-
 
         temp = []
         for result in results:
@@ -168,18 +130,12 @@ class GetPoisFromLocation(APIView):
 
         print(results)
 
-        cord1 = {
-            "latitude": lat,
-            "longitude": lng
-        }
+        cord1 = {"latitude": lat, "longitude": lng}
 
         cards = []
 
         for result in results:
-            cord2 = {
-                "latitude": result["latitude"],
-                "longitude": result["longitude"],
-            }
+            cord2 = {"latitude": result["latitude"], "longitude": result["longitude"], }
 
             del result["latitude"]
             del result["longitude"]
@@ -188,15 +144,6 @@ class GetPoisFromLocation(APIView):
             result["distance"] = distance
             cards.append(result)
 
+        ranked = sorted(results, key=rank_poi, reverse=True)
 
-        ranked =sorted(results, key=rank_poi, reverse=True)
-
-
-        print(ranked)
         return Response(ranked)
-
-
-
-
-
-
