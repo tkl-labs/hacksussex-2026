@@ -170,21 +170,8 @@ class GetDescriptionFromName(APIView):
         names = serializer.validated_data['name']
 
         prompt = f'''
-        Describe each of the following places for a walking tour app.
-        Write ~50 words per place.
-        Be factual. No speculation.
-        
-        Return JSON in this format:
-        {{
-          "places": [
-            {{
-              "name": "Place name",
-              "desc": "Description"
-            }}
-          ]
-        }}
-
-        Places:
+        Return JSON:{{"places":[{{"name":"Name","desc":"Description"}}]}}
+        ~40 words per place, factual:
         {chr(10).join(names)}
         '''
 

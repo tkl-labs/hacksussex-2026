@@ -19,7 +19,7 @@ import { Text } from "@concerns/atomics";
 import { useLazySubmitLocationQuery } from "@/store/api/mapApi";
 import { getCircleCenter } from "@/utility/map";
 
-const minRad = 200;
+const minRad = 1000;
 export type LocationState =
   | { status: "idle" }
   | { status: "loading" }
@@ -48,7 +48,6 @@ export default function MapScreen() {
       if (location.coords.speed == -1 || location.coords.speed == null) {
         return;
       }
-      console.log("speed", Math.max(location.coords.speed, 1));
     },
   );
 
@@ -209,8 +208,8 @@ export default function MapScreen() {
         },
         scanBtn: {
           position: "absolute",
-          bottom: insets.bottom + theme.spacing(3),
-          left: theme.spacing(2),
+          top: insets.top + theme.spacing(3),
+          left: theme.spacing(10),
           right: theme.spacing(2) + 50 + theme.spacing(2),
           height: 50,
           borderRadius: theme.borderRadius.fiftyPercent,
@@ -219,11 +218,6 @@ export default function MapScreen() {
           justifyContent: "center",
           flexDirection: "row",
           gap: theme.spacing(1),
-          shadowColor: theme.colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 12,
-          elevation: 6,
         },
         scanBtnDisabled: {
           backgroundColor: theme.colors.surfaceVariant,
@@ -359,23 +353,6 @@ export default function MapScreen() {
             </Marker>
           ))}
         </MapView>
-      )}
-
-      {location.status === "ready" && (
-        <View style={styles.headingBadge}>
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant }}
-          >
-            {Math.round(heading)}° · {activeCircleSize} ·{" "}
-          </Text>
-          <Text
-            variant="bodySmall"
-            style={{ color: theme.colors.onSurfaceVariant }}
-          >
-            Speed:
-          </Text>
-        </View>
       )}
 
       {/* Scan button */}

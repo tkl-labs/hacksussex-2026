@@ -5,7 +5,7 @@ type getDescRequest = {
   name: string[];
 };
 
-type descPlaces = {
+export type descPlaces = {
   name: string;
   desc: string;
 };
@@ -13,6 +13,13 @@ type descPlaces = {
 type getDescResponse = {
   places: descPlaces[];
 };
+
+export type MP3Request = {
+  text: string;
+};
+
+export type MP3Response = Blob;
+
 export const mapApi = createApi({
   reducerPath: "mapApi",
   baseQuery: fetchBaseQuery({
@@ -60,7 +67,25 @@ export const mapApi = createApi({
         arg,
       ) => response.status,
     }),
+
+    getMP3: build.query<MP3Response, MP3Request>({
+      query: ({ text }) => ({
+        url: "/tts/",
+        method: "POST",
+        body: { text },
+        responseHandler: (response) => response.blob(),
+      }),
+      transformErrorResponse: (
+        response: { status: string | number },
+        meta,
+        arg,
+      ) => response.status,
+    }),
   }),
 });
 
-export const { useLazySubmitLocationQuery, useLazyGetPOIsDescQuery } = mapApi;
+export const {
+  useLazySubmitLocationQuery,
+  useLazyGetPOIsDescQuery,
+  useLazyGetMP3Query,
+} = mapApi;

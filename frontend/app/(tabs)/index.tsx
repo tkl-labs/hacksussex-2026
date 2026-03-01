@@ -46,16 +46,15 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.greeting}>Homepage</Text>
-      <NavigationHeader title={"hello"} />
 
-      {__DEV__ && (
-        <TouchableOpacity
-          style={styles.devButton}
-          onPress={() => router.push("/dev")}
-        >
-          <Text style={styles.devButtonText}>Dev Preview</Text>
-        </TouchableOpacity>
-      )}
+      {/*{__DEV__ && (*/}
+      {/*  <TouchableOpacity*/}
+      {/*    style={styles.devButton}*/}
+      {/*    onPress={() => router.push("/dev")}*/}
+      {/*  >*/}
+      {/*    <Text style={styles.devButtonText}>Dev Preview</Text>*/}
+      {/*  </TouchableOpacity>*/}
+      {/*)}*/}
     </View>
   );
 }

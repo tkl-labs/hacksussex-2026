@@ -7,12 +7,15 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAudioPlayer } from "expo-audio";
 
 import { useAppTheme } from "@/theme";
 import { Text } from "@concerns/atomics";
 import { PlayIcon, StarIcon } from "@concerns/atomics/Icons";
 import { BottomDrawer } from "@concerns/atomics/BottomDrawer/BottomDrawer";
 import {
+  descPlaces,
+  useLazyGetMP3Query,
   useLazyGetPOIsDescQuery,
   useLazySubmitLocationQuery,
 } from "@/store/api/mapApi";
@@ -20,9 +23,8 @@ import { getCircleCenter } from "@/utility/map";
 import { LocationState } from "./map";
 import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
-import { skipToken } from "@reduxjs/toolkit/query";
 
-type NowPlaying = { title: string; summary: string } | null;
+type NowPlaying = { title: string; summary: string; audioUrl: string } | null;
 
 type POIItem = {
   headerTitle: string;
@@ -33,7 +35,9 @@ type POIItem = {
   openingHours: string[];
   lat: number;
   lng: number;
+  audioUrl?: string;
 };
+import { Directory, File, Paths } from "expo-file-system";
 
 export default function WalkScreen() {
   const insets = useSafeAreaInsets();
@@ -42,12 +46,44 @@ export default function WalkScreen() {
   const [heading, setHeading] = useState<number>(0);
   const [nowPlaying, setNowPlaying] = useState<NowPlaying>(null);
   const [selectedPOI, setSelectedPOI] = useState<POIItem | null>(null);
+  const [poiAudioMap, setPoiAudioMap] = useState<Record<string, string>>({});
+
+  const player = useAudioPlayer(
+    nowPlaying?.audioUrl ? { uri: nowPlaying.audioUrl } : null,
+  );
+
+  const fetchAudioAsLocalFile = async (
+    desc: string,
+  ): Promise<string | null> => {
+    try {
+      const baseUrl =
+        process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api";
+
+      const destination = new File(Paths.cache, `audio_${Date.now()}.mp3`);
+
+      const output = await File.downloadFileAsync(
+        `${baseUrl}/tts/?text=${encodeURIComponent(desc)}`,
+        destination,
+      );
+
+      if (!output.exists) return null;
+      return output.uri;
+    } catch (err) {
+      console.warn("Failed to fetch audio:", err);
+      return null;
+    }
+  };
+
+  // Auto-play when nowPlaying changes
+  useEffect(() => {
+    if (nowPlaying?.audioUrl) {
+      player.play();
+    }
+  }, [nowPlaying?.audioUrl]);
 
   const [triggerSubmit, { data, isLoading: isSubmitting }] =
     useLazySubmitLocationQuery();
-
-  const [triggerDescSubmit, { data: dataDesc, isLoading: isDescSubmitting }] =
-    useLazyGetPOIsDescQuery();
+  const [triggerDescSubmit] = useLazyGetPOIsDescQuery();
 
   useEffect(() => {
     requestLocation();
@@ -64,12 +100,49 @@ export default function WalkScreen() {
     if (!boundingCircle) return;
 
     const result = await triggerSubmit(boundingCircle);
-
     if (!result.data?.places?.length) return;
 
-    const descList = result.data.places.map((place) => place.displayName);
-    triggerDescSubmit({ name: descList });
+    const descResult = await triggerDescSubmit({
+      name: result.data.places.map((place) => place.displayName),
+    });
+
+    if (!descResult.data?.places?.length) return;
+
+    const mp3Results = await Promise.all(
+      descResult.data.places.map(async (place: descPlaces) => {
+        const audioUrl = await fetchAudioAsLocalFile(place.desc);
+        return { name: place.name, audioUrl };
+      }),
+    );
+
+    const audioMap: Record<string, string> = {};
+    for (const { name, audioUrl } of mp3Results) {
+      if (audioUrl) audioMap[name] = audioUrl;
+    }
+    setPoiAudioMap(audioMap);
   }, [boundingCircle, triggerSubmit, triggerDescSubmit]);
+
+  const handlePlay = useCallback(
+    (title: string, summary: string) => {
+      const audioUrl = poiAudioMap[title];
+      if (!audioUrl) return;
+
+      // If tapping the same item that's already playing, stop it
+      if (nowPlaying?.title === title) {
+        player.pause();
+        setNowPlaying(null);
+        return;
+      }
+
+      setNowPlaying({ title, summary, audioUrl });
+    },
+    [poiAudioMap, nowPlaying, player],
+  );
+
+  const handleStopPlaying = useCallback(() => {
+    player.pause();
+    setNowPlaying(null);
+  }, [player]);
 
   const requestLocation = async () => {
     setLocation({ status: "loading" });
@@ -89,6 +162,8 @@ export default function WalkScreen() {
       },
     });
   };
+
+  const isAnyScanLoading = isSubmitting;
 
   const styles = useMemo(
     () =>
@@ -155,11 +230,6 @@ export default function WalkScreen() {
           paddingHorizontal: theme.spacing(2),
           paddingVertical: theme.spacing(1.5),
           gap: theme.spacing(1.5),
-          shadowColor: theme.colors.primary,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.5,
-          shadowRadius: 16,
-          elevation: 8,
         },
         playerBarTextContainer: { flex: 1, gap: 2 },
         playerBarTitle: { color: theme.colors.onPrimary, fontWeight: "700" },
@@ -239,11 +309,11 @@ export default function WalkScreen() {
         <Text variant="headline">Your List</Text>
         {location.status === "ready" && (
           <TouchableOpacity
-            style={[styles.scanBtn, isSubmitting && styles.scanBtnDisabled]}
+            style={[styles.scanBtn, isAnyScanLoading && styles.scanBtnDisabled]}
             onPress={handleScan}
-            disabled={isSubmitting}
+            disabled={isAnyScanLoading}
           >
-            {isSubmitting ? (
+            {isAnyScanLoading ? (
               <ActivityIndicator size="small" color={theme.colors.onPrimary} />
             ) : (
               <Text
@@ -272,13 +342,14 @@ export default function WalkScreen() {
             openingHours={place.weeklyDescriptions}
             lat={place.latitude}
             lng={place.longitude}
+            hasAudio={!!poiAudioMap[place.displayName]}
+            isPlaying={nowPlaying?.title === place.displayName}
             onPress={(poi) => setSelectedPOI(poi)}
-            onPlay={(title, summary) => setNowPlaying({ title, summary })}
+            onPlay={handlePlay}
           />
         ))}
       </ScrollView>
 
-      {/* Single shared drawer */}
       <POIDrawer
         poi={selectedPOI}
         isOpen={selectedPOI !== null}
@@ -289,7 +360,7 @@ export default function WalkScreen() {
         <TouchableOpacity
           style={styles.playerBar}
           activeOpacity={0.9}
-          onPress={() => setNowPlaying(null)}
+          onPress={handleStopPlaying}
         >
           <View style={styles.pulsingDot} />
           <View style={styles.playerBarTextContainer}>
@@ -301,7 +372,7 @@ export default function WalkScreen() {
             </Text>
           </View>
           <View style={styles.playerBarIcon}>
-            <Text style={{ color: theme.colors.onPrimary, fontSize: 16 }}>
+            <Text style={{ color: theme.colors.onPrimary, fontSize: 14 }}>
               ■
             </Text>
           </View>
@@ -311,22 +382,29 @@ export default function WalkScreen() {
   );
 }
 
-// ─── POI List Card ────────────────────────────────────────────────────────────
-
 type POIListCardProps = POIItem & {
   onPress: (poi: POIItem) => void;
   onPlay: (title: string, summary: string) => void;
+  hasAudio: boolean;
+  isPlaying: boolean;
 };
 
-export const POIListCard = ({ onPress, onPlay, ...poi }: POIListCardProps) => {
+export const POIListCard = ({
+  onPress,
+  onPlay,
+  hasAudio,
+  isPlaying,
+  ...poi
+}: POIListCardProps) => {
   const theme = useAppTheme();
 
   const handlePlay = useCallback(
     (e: any) => {
       e.stopPropagation();
+      if (!hasAudio) return;
       onPlay(poi.headerTitle, poi.editorialSummary);
     },
-    [poi.headerTitle, poi.editorialSummary, onPlay],
+    [poi.headerTitle, poi.editorialSummary, onPlay, hasAudio],
   );
 
   const styles = useMemo(
@@ -336,18 +414,25 @@ export const POIListCard = ({ onPress, onPlay, ...poi }: POIListCardProps) => {
           flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing(1.5),
-          backgroundColor: theme.colors.surface,
+          backgroundColor: isPlaying
+            ? `${theme.colors.primary}18`
+            : theme.colors.surface,
           borderRadius: theme.borderRadius.semiRound,
           borderWidth: 1,
-          borderColor: theme.colors.outlineVariant,
+          borderColor: isPlaying
+            ? theme.colors.primary
+            : theme.colors.outlineVariant,
           paddingHorizontal: theme.spacing(1.5),
           paddingVertical: theme.spacing(1.5),
         },
         textContainer: { flex: 1, gap: theme.spacing(0.5) },
         subtitle: { color: theme.colors.onSurfaceVariant },
-        playBtn: { padding: theme.spacing(0.5) },
+        playBtn: {
+          padding: theme.spacing(0.5),
+          opacity: hasAudio ? 1 : 0.3,
+        },
       }),
-    [theme],
+    [theme, hasAudio, isPlaying],
   );
 
   return (
@@ -359,9 +444,13 @@ export const POIListCard = ({ onPress, onPlay, ...poi }: POIListCardProps) => {
       <TouchableOpacity
         style={styles.playBtn}
         onPress={handlePlay}
-        activeOpacity={0.7}
+        activeOpacity={hasAudio ? 0.7 : 1}
+        disabled={!hasAudio}
       >
-        <PlayIcon size="xLarge" />
+        <PlayIcon
+          size="xLarge"
+          color={isPlaying ? theme.colors.primary : undefined}
+        />
       </TouchableOpacity>
       <View style={styles.textContainer}>
         <Text variant="titleLarge">{poi.headerTitle}</Text>
@@ -372,8 +461,6 @@ export const POIListCard = ({ onPress, onPlay, ...poi }: POIListCardProps) => {
     </TouchableOpacity>
   );
 };
-
-// ─── POI Drawer ───────────────────────────────────────────────────────────────
 
 type POIDrawerProps = {
   poi: POIItem | null;
@@ -416,9 +503,7 @@ const POIDrawer = ({ poi, isOpen, onClose }: POIDrawerProps) => {
           lineHeight: 22,
           letterSpacing: 1.5,
         },
-        addressRow: {
-          padding: theme.spacing(1.5),
-        },
+        addressRow: { padding: theme.spacing(1.5) },
         addressText: { color: theme.colors.onSurfaceVariant },
         divider: { height: 1, backgroundColor: theme.colors.outlineVariant },
         hoursTitle: {
@@ -447,7 +532,6 @@ const POIDrawer = ({ poi, isOpen, onClose }: POIDrawerProps) => {
     [theme, poi?.openNow, poi?.rating],
   );
 
-  // Keep rendering the last POI while the drawer is animating closed
   if (!poi) return null;
 
   return (
@@ -511,8 +595,6 @@ const POIDrawer = ({ poi, isOpen, onClose }: POIDrawerProps) => {
     </BottomDrawer>
   );
 };
-
-// ─── POI Map Preview ──────────────────────────────────────────────────────────
 
 const POIMapPreview = ({ lat, lng }: { lat: number; lng: number }) => {
   const theme = useAppTheme();

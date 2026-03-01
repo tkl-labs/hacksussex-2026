@@ -49,19 +49,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
-        options={{
-          title: "Map",
-          tabBarIcon: ({ focused }) => (
-            <MapIcon
-              color={
-                focused ? theme.colors.primary : theme.colors.onSurfaceVariant
-              }
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="index"
         options={{
           title: "Home",
@@ -75,11 +62,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="map"
         options={{
-          title: "Settings",
+          title: "Map",
           tabBarIcon: ({ focused }) => (
-            <SettingsIcon
+            <MapIcon
               color={
                 focused ? theme.colors.primary : theme.colors.onSurfaceVariant
               }
