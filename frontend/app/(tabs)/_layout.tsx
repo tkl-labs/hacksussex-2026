@@ -2,11 +2,7 @@ import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/theme";
-import {
-  HomeIcon,
-  PersonWalkingIcon,
-  SettingsIcon,
-} from "@concerns/atomics/Icons";
+import { HomeIcon, MapPinIcon } from "@concerns/atomics/Icons";
 import { MapIcon } from "@concerns/atomics/Icons/MapIcon";
 
 export default function TabsLayout() {
@@ -38,9 +34,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="walk"
         options={{
-          title: "Walk",
+          title: "Places",
           tabBarIcon: ({ focused }) => (
-            <PersonWalkingIcon
+            <MapPinIcon
               color={
                 focused ? theme.colors.primary : theme.colors.onSurfaceVariant
               }

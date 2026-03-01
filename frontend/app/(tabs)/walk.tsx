@@ -306,7 +306,7 @@ export default function WalkScreen() {
       )}
 
       <View style={styles.topBar}>
-        <Text variant="headline">Your List</Text>
+        <Text variant="headline">Places List</Text>
         {location.status === "ready" && (
           <TouchableOpacity
             style={[styles.scanBtn, isAnyScanLoading && styles.scanBtnDisabled]}
