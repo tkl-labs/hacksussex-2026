@@ -32,7 +32,7 @@ class LocationSerializer(serializers.Serializer):
 
 
 class NameSerializer(serializers.Serializer):
-    name = (serializers.ListField(child=serializers.CharField(), min_length=5, max_length=5))
+    name = (serializers.ListField(child=serializers.CharField(), min_length=1, max_length=5))
 
 
 class PlaceDescription(BaseModel):
@@ -120,7 +120,7 @@ class GetPoisFromLocation(APIView):
         url = 'https://places.googleapis.com/v1/places:searchNearby'
 
         headers = {'Content-Type': 'application/json', 'X-Goog-Api-Key': PLACES_API_KEY,
-                   'X-Goog-FieldMask': 'places.displayName.text,places.location.latitude,places.location.longitude,places.userRatingCount,places.rating'}
+                   'X-Goog-FieldMask': 'places.displayName.text,places.location.latitude,places.location.longitude,places.userRatingCount,places.rating,places.rating,places.formattedAddress,places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions'}
 
         payload = {'locationRestriction': {'circle': {'center': {'latitude': lat, 'longitude': lng}, 'radius': rad}},
                    'includedPrimaryTypes': PRIMARY_TYPES, 'maxResultCount': 5}
@@ -153,16 +153,13 @@ class GetPoisFromLocation(APIView):
         for result in results:
             coord2 = {'latitude': result['latitude'], 'longitude': result['longitude'], }
 
-            del result['latitude']
-            del result['longitude']
-
             distance = get_distance(coord1, coord2)
             result['distance'] = distance
             cards.append(result)
 
         ranked = sorted(results, key=rank_poi, reverse=True)
 
-        return Response(ranked)
+        return Response({"places":ranked})
 
 
 class GetDescriptionFromName(APIView):
@@ -174,7 +171,7 @@ class GetDescriptionFromName(APIView):
 
         prompt = f'''
         Describe each of the following places for a walking tour app.
-        Write ~75 words per place.
+        Write ~50 words per place.
         Be factual. No speculation.
         
         Return JSON in this format:

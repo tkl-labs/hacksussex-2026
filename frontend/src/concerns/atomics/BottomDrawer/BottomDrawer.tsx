@@ -1,7 +1,8 @@
 import {
+  BottomSheetBackdrop,
   BottomSheetModal,
-  BottomSheetScrollView,
   BottomSheetModalProps,
+  BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import {
   StyleProp,
@@ -11,12 +12,12 @@ import {
   ViewStyle,
 } from "react-native";
 import {
-  useRef,
-  useMemo,
   ReactNode,
+  RefObject,
   useCallback,
   useLayoutEffect,
-  RefObject,
+  useMemo,
+  useRef,
 } from "react";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -50,6 +51,7 @@ const BottomDrawer = ({
   handleIndicatorStyle,
   backgroundStyle,
   headerTitle,
+  disableBackdrop,
   data,
   ...props
 }: BottomDrawerProps) => {
@@ -58,7 +60,6 @@ const BottomDrawer = ({
 
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
-
   const { height } = useWindowDimensions();
 
   const maxDynamicContentSize = useMemo(() => {
@@ -68,9 +69,8 @@ const BottomDrawer = ({
       maximumViewPercentage <= 1
     ) {
       return height * maximumViewPercentage;
-    } else {
-      return height * 0.85;
     }
+    return height * 0.85;
   }, [height, maximumViewPercentage]);
 
   useLayoutEffect(() => {
@@ -85,10 +85,23 @@ const BottomDrawer = ({
     (index: number) => {
       if (index < 0) {
         onClose();
-        drawerRef.current?.close();
       }
     },
     [onClose],
+  );
+
+  const renderBackdrop = useCallback(
+    (backdropProps: any) =>
+      disableBackdrop ? null : (
+        <BottomSheetBackdrop
+          {...backdropProps}
+          disappearsOnIndex={-1}
+          appearsOnIndex={0}
+          opacity={0.6}
+          pressBehavior="close"
+        />
+      ),
+    [disableBackdrop],
   );
 
   const styles = useMemo(
@@ -102,7 +115,10 @@ const BottomDrawer = ({
         },
         background: {
           backgroundColor: backgroundColor ?? theme.colors.surface,
-          borderRadius: theme.borderRadius.fiftyPercent,
+          borderTopLeftRadius: theme.borderRadius.round,
+          borderTopRightRadius: theme.borderRadius.round,
+          borderBottomLeftRadius: 0,
+          borderBottomRightRadius: 0,
         },
         viewContainer: {
           paddingBottom: Math.max(insets.bottom, theme.gutterPadding),
@@ -110,10 +126,6 @@ const BottomDrawer = ({
         },
         contentContainer: {
           paddingHorizontal: theme.gutterPadding,
-        },
-        header: {
-          paddingBottom: theme.spacing(1),
-          backgroundColor: backgroundColor ?? theme.colors.surface,
         },
       }),
     [theme, backgroundColor, insets],
@@ -128,6 +140,7 @@ const BottomDrawer = ({
       maxDynamicContentSize={maxDynamicContentSize}
       handleIndicatorStyle={[styles.handle, handleIndicatorStyle]}
       backgroundStyle={[styles.background, backgroundStyle]}
+      backdropComponent={renderBackdrop}
       style={style}
       {...props}
     >
@@ -152,5 +165,4 @@ const BottomDrawer = ({
 };
 
 export { BottomDrawer };
-
 export type { BottomDrawerProps };

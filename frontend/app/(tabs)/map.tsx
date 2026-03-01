@@ -20,7 +20,7 @@ import { useLazySubmitLocationQuery } from "@/store/api/mapApi";
 import { getCircleCenter } from "@/utility/map";
 
 const minRad = 200;
-type LocationState =
+export type LocationState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "denied" }

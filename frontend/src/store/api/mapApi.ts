@@ -1,6 +1,18 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import type { UserLocation, MapResponse } from "../slices/mapSlice";
 
+type getDescRequest = {
+  name: string[];
+};
+
+type descPlaces = {
+  name: string;
+  desc: string;
+};
+
+type getDescResponse = {
+  places: descPlaces[];
+};
 export const mapApi = createApi({
   reducerPath: "mapApi",
   baseQuery: fetchBaseQuery({
@@ -17,9 +29,9 @@ export const mapApi = createApi({
   endpoints: (build) => ({
     submitLocation: build.query<MapResponse, UserLocation>({
       query: ({ latitude, longitude, radius }) => ({
-        url: "/pois",
-        method: "GET",
-        params: {
+        url: "/pois/",
+        method: "POST",
+        body: {
           lat: latitude,
           lng: longitude,
           rad: radius,
@@ -31,16 +43,24 @@ export const mapApi = createApi({
         meta,
         arg,
       ) => response.status,
-      async onQueryStarted(arg, { queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled;
-          console.log("POIs received:", data);
-        } catch (err) {
-          console.warn("Failed to fetch POIs:", err);
-        }
-      },
+    }),
+
+    getPOIsDesc: build.query<getDescResponse, getDescRequest>({
+      query: ({ name }) => ({
+        url: "/desc/",
+        method: "POST",
+        body: {
+          name: name,
+        },
+      }),
+      transformResponse: (response: getDescResponse, meta, arg) => response,
+      transformErrorResponse: (
+        response: { status: string | number },
+        meta,
+        arg,
+      ) => response.status,
     }),
   }),
 });
 
-export const { useLazySubmitLocationQuery } = mapApi;
+export const { useLazySubmitLocationQuery, useLazyGetPOIsDescQuery } = mapApi;

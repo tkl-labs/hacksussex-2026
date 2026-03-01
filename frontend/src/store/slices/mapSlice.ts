@@ -11,6 +11,10 @@ type POI = {
   displayName: string;
   latitude: number;
   longitude: number;
+  rating: number;
+  editorialSummary: string;
+  openNow: boolean;
+  weeklyDescriptions: string[];
 };
 
 export type MapResponse = {
