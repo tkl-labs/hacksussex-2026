@@ -3,12 +3,18 @@ import math
 import os
 
 import requests
+from google import genai
+from google.genai.types import GenerateContentConfig
+from pydantic import BaseModel
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+PLACES_API_KEY = os.getenv("PLACES_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 session = requests.session()
+genai_client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 def get_primary_types() -> list[str]:
@@ -23,6 +29,19 @@ class LocationSerializer(serializers.Serializer):
     lat = serializers.FloatField(min_value=-90, max_value=90)
     lng = serializers.FloatField(min_value=-180, max_value=180)
     rad = serializers.FloatField(min_value=0, max_value=1000)
+
+
+class NameSerializer(serializers.Serializer):
+    name = (serializers.ListField(child=serializers.CharField(), min_length=5, max_length=5))
+
+
+class PlaceDescription(BaseModel):
+    name: str
+    desc: str
+
+
+class JsonOutput(BaseModel):
+    places: list[PlaceDescription]
 
 
 class Card:
@@ -100,7 +119,7 @@ class GetPoisFromLocation(APIView):
 
         url = "https://places.googleapis.com/v1/places:searchNearby"
 
-        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_API_KEY,
+        headers = {"Content-Type": "application/json", "X-Goog-Api-Key": PLACES_API_KEY,
                    "X-Goog-FieldMask": "places.displayName.text,places.location.latitude,places.location.longitude,places.userRatingCount,places.rating"}
 
         payload = {"locationRestriction": {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": rad}},
@@ -128,22 +147,52 @@ class GetPoisFromLocation(APIView):
             temp.append(flat)
         results = temp
 
-        print(results)
-
-        cord1 = {"latitude": lat, "longitude": lng}
+        coord1 = {"latitude": lat, "longitude": lng}
 
         cards = []
-
         for result in results:
-            cord2 = {"latitude": result["latitude"], "longitude": result["longitude"], }
+            coord2 = {"latitude": result["latitude"], "longitude": result["longitude"], }
 
             del result["latitude"]
             del result["longitude"]
 
-            distance = get_distance(cord1, cord2)
+            distance = get_distance(coord1, coord2)
             result["distance"] = distance
             cards.append(result)
 
         ranked = sorted(results, key=rank_poi, reverse=True)
 
         return Response(ranked)
+
+
+class GetDescriptionFromName(APIView):
+    def post(self, request):
+        serializer = NameSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        names = serializer.validated_data['name']
+
+        prompt = f"""
+        Describe each of the following places for a walking tour app.
+        Write ~75 words per place.
+        Be factual. No speculation.
+        
+        Return JSON in this format:
+        {{
+          "places": [
+            {{
+              "name": "Place name",
+              "desc": "Description"
+            }}
+          ]
+        }}
+
+        Places:
+        {chr(10).join(names)}
+        """
+
+        response = genai_client.models.generate_content(model='gemini-3-flash-preview', contents=prompt,
+                                                        config=GenerateContentConfig(
+                                                            response_mime_type="application/json",
+                                                            response_schema=JsonOutput), )
+        return Response(response.parsed.model_dump())
