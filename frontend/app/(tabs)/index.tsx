@@ -1,6 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useAppTheme } from '@/theme';
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
+import { useAppTheme } from "@/theme";
+import { IconButton, NavigationHeader } from "@concerns/atomics";
+import { CloseIcon } from "@concerns/atomics/Icons";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -10,13 +12,13 @@ export default function HomeScreen() {
     container: {
       flex: 1,
       backgroundColor: theme.colors.background,
-      alignItems: 'center',
-      justifyContent: 'center',
+      alignItems: "center",
+      justifyContent: "center",
       padding: 24,
     },
     greeting: {
       fontSize: 32,
-      fontWeight: '700',
+      fontWeight: "700",
       color: theme.colors.onBackground,
       marginBottom: 8,
     },
@@ -26,7 +28,7 @@ export default function HomeScreen() {
       marginBottom: 60,
     },
     devButton: {
-      position: 'absolute',
+      position: "absolute",
       bottom: 24,
       right: 24,
       borderWidth: 1,
@@ -37,18 +39,19 @@ export default function HomeScreen() {
     },
     devButtonText: {
       fontSize: 13,
-      fontWeight: '600',
+      fontWeight: "600",
     },
   });
 
   return (
     <View style={styles.container}>
       <Text style={styles.greeting}>Homepage</Text>
+      <NavigationHeader title={"hello"} />
 
       {__DEV__ && (
         <TouchableOpacity
           style={styles.devButton}
-          onPress={() => router.push('/dev')}
+          onPress={() => router.push("/dev")}
         >
           <Text style={styles.devButtonText}>Dev Preview</Text>
         </TouchableOpacity>

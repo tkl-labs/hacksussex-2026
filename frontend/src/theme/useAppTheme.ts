@@ -5,6 +5,9 @@ import type { AppColors } from "./colors";
 export interface AppTheme extends MD3Theme {
   colors: MD3Theme["colors"] & AppColors;
   spacing: (multiplier: number) => number;
+  gutterPadding: number;
+  componentSpacing: number;
+  innerComponentSpacing: number;
   borderRadius: {
     sharp: number;
     small: number;

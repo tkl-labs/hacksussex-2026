@@ -7,14 +7,14 @@ export type UserLocation = {
 };
 
 type POI = {
-  lat: number;
-  lng: number;
-  radius: number;
+  formattedAddress: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
 };
 
 export type MapResponse = {
-  id: string;
-  pois: POI[];
+  places: POI[];
 };
 
 type MapState = {

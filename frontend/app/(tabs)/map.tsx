@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
+  View,
 } from "react-native";
 import MapView, {
   Circle,
@@ -17,8 +17,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppTheme } from "@/theme";
 import { Text } from "@concerns/atomics";
 import { useLazySubmitLocationQuery } from "@/store/api/mapApi";
-import { CircleSizeLengths, CircleSize, getCircleCenter } from "@/utility/map";
+import { getCircleCenter } from "@/utility/map";
 
+const minRad = 200;
 type LocationState =
   | { status: "idle" }
   | { status: "loading" }
@@ -32,14 +33,28 @@ export default function MapScreen() {
 
   const [location, setLocation] = useState<LocationState>({ status: "idle" });
   const [heading, setHeading] = useState<number>(0);
-  const [activeCircleSize, setActiveCircleSize] = useState<CircleSize>("large");
+  const [activeCircleSize, setActiveCircleSize] = useState<number>(minRad);
 
   const [triggerSubmit, { data, isLoading: isSubmitting }] =
     useLazySubmitLocationQuery();
 
+  Location.watchPositionAsync(
+    {
+      accuracy: Location.Accuracy.High,
+      timeInterval: 2000,
+      distanceInterval: 3,
+    },
+    (location) => {
+      if (location.coords.speed == -1 || location.coords.speed == null) {
+        return;
+      }
+      console.log("speed", Math.max(location.coords.speed, 1));
+    },
+  );
+
   const boundingCircle = useMemo(() => {
     if (location.status !== "ready") return null;
-    const radius = CircleSizeLengths[activeCircleSize];
+    const radius = minRad;
     const center = getCircleCenter(location.coords, heading, radius);
     return {
       latitude: center.latitude,
@@ -321,10 +336,13 @@ export default function MapScreen() {
           )}
 
           {/* POI markers from API */}
-          {data?.pois.map((poi, i) => (
+          {data?.places.map((place, i) => (
             <Marker
               key={i}
-              coordinate={{ latitude: poi.lat, longitude: poi.lng }}
+              coordinate={{
+                latitude: place.latitude,
+                longitude: place.longitude,
+              }}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >
@@ -350,7 +368,12 @@ export default function MapScreen() {
             style={{ color: theme.colors.onSurfaceVariant }}
           >
             {Math.round(heading)}° · {activeCircleSize} ·{" "}
-            {CircleSizeLengths[activeCircleSize]}m
+          </Text>
+          <Text
+            variant="bodySmall"
+            style={{ color: theme.colors.onSurfaceVariant }}
+          >
+            Speed:
           </Text>
         </View>
       )}

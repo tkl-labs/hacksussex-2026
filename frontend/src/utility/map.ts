@@ -1,11 +1,5 @@
-export type CircleSize = "small" | "medium" | "large";
-
-// Meters
-export const CircleSizeLengths: Record<CircleSize, number> = {
-  small: 50,
-  medium: 75,
-  large: 100,
-};
+import { useEffect, useRef, useState } from "react";
+import { Accelerometer } from "expo-sensors";
 
 // Average number of meters in one degree of latitude
 export const MetersPerDegreeLat = 111320;
