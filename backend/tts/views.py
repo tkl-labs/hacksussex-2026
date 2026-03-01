@@ -2,14 +2,13 @@
 import os
 
 import requests
-from django.http import HttpResponse
-from dotenv import load_dotenv
+from django.http import StreamingHttpResponse
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-load_dotenv()
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+session = requests.session()
 
 
 class TtsSerializer(serializers.Serializer):
@@ -29,9 +28,15 @@ class GenerateMp3FromText(APIView):
 
         data = {"text": text, "model_id": "eleven_flash_v2_5"}
 
-        response = requests.post(url, headers=headers, json=data)
+        response = session.post(
+            url,
+            headers=headers,
+            json=data,
+            stream=True,
+            timeout=(5, 60)
+        )
 
         if response.status_code == 200:
-            return HttpResponse(response.content, content_type="audio/mpeg")
+            return StreamingHttpResponse(response.iter_content(chunk_size=8192), content_type="audio/mpeg")
         else:
             return Response({"error": response.text}, status=response.status_code)
