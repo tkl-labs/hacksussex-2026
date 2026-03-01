@@ -38,6 +38,9 @@ const sharedColors = {
 const customProperties = {
   // spacing(1) = 8, spacing(2) = 16, spacing(3) = 24 etc.
   spacing: (multiplier: number) => multiplier * 8,
+  gutterPadding: 24,
+  componentSpacing: 30,
+  innerComponentSpacing: 20,
   borderRadius: {
     semiRound: 20,
     round: 32,

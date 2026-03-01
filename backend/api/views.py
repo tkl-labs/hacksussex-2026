@@ -23,6 +23,9 @@ PRIMARY_TYPES: list[str] = get_primary_types()
 
 
 def flatten(map):
+    if map == {}:
+        return []
+
     for entry in map['places']:
         text = entry["displayName"]["text"]
         entry["displayName"] = text
